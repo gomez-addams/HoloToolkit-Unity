@@ -26,6 +26,10 @@ namespace HoloToolkit.Unity
         {
             // Use BuildSLNUtilities to create the SLN
             bool buildSuccess = false;
+            // A Strata addition...
+            var preBuild = BuildDeployPrefs.PreBuild;
+            var postBuild = BuildDeployPrefs.PostBuild;
+            // ^^^ cached from the global prefs in case they change
             BuildSLNUtilities.PerformBuild(new BuildSLNUtilities.BuildInfo()
             {
                 // These properties should all match what the Standalone.proj file specifies
@@ -35,9 +39,19 @@ namespace HoloToolkit.Unity
                 WSASdk = WSASDK.UWP,
                 WSAUWPBuildType = WSAUWPBuildType.D3D,
 
+                // A Strata addition...
+                PreBuildAction = (buildInfo) => {
+                    if (null != preBuild) {
+                        preBuild(buildInfo);
+                    }
+                },
+
                 // Configure a post build action that will compile the generated solution
-                PostBuildAction = (buildInfo, buildError) =>
-                {
+                PostBuildAction = (buildInfo, buildError) => {
+                    // A Strata addition...
+                    if (null != postBuild) {
+                        buildError = postBuild(buildInfo, buildError);
+                    }
                     if (!string.IsNullOrEmpty(buildError))
                     {
                         EditorUtility.DisplayDialog(PlayerSettings.productName + " WindowsStoreApp Build Failed!", buildError, "OK");

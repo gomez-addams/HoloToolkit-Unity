@@ -1,4 +1,5 @@
 ﻿
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -88,5 +89,12 @@ namespace HoloToolkit.Unity
                 return defaultValue;
             }
         }
+
+        // A Strata addition...
+        public delegate void PreBuildDelegate(BuildSLNUtilities.BuildInfo buildInfo);
+        public static PreBuildDelegate PreBuild = null;
+
+        public delegate string PostBuildDelegate(BuildSLNUtilities.BuildInfo buildInfo, string buildError);
+        public static PostBuildDelegate PostBuild = null;
     }
 }
