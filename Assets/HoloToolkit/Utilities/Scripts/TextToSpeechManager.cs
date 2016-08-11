@@ -1,7 +1,9 @@
 ﻿// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
-using System;
 using UnityEngine;
+using System;
+using System.Collections;
+using System.Collections.Generic;
 
 #if WINDOWS_UWP
 using Windows.Foundation;
@@ -30,9 +32,9 @@ namespace HoloToolkit.Unity
         public AudioSource audioSource;
 
         // Member Variables
-        #if WINDOWS_UWP
+#if WINDOWS_UWP
         private SpeechSynthesizer synthesizer;
-        #endif
+#endif
 
         // Static Helper Methods
 
@@ -182,7 +184,7 @@ namespace HoloToolkit.Unity
             Debug.LogFormat("Speech not supported in editor. \"{0}\"", text);
         }
 
-        #if WINDOWS_UWP
+#if WINDOWS_UWP
         /// <summary>
         /// Executes a function that generates a speech stream and then converts and plays it in Unity.
         /// </summary>
@@ -260,7 +262,7 @@ namespace HoloToolkit.Unity
                 Debug.LogErrorFormat("Speech not initialized. \"{0}\"", text);
             }
         }
-        #endif
+#endif
 
         // MonoBehaviour Methods
         void Start()
@@ -272,10 +274,10 @@ namespace HoloToolkit.Unity
                     Debug.LogError("An AudioSource is required and should be assigned to 'Audio Source' in the inspector.");
                 }
                 else
-                { 
-                    #if WINDOWS_UWP
+                {
+#if WINDOWS_UWP
                     synthesizer = new SpeechSynthesizer();
-                    #endif
+#endif
                 }
             }
             catch (Exception ex)
@@ -299,11 +301,11 @@ namespace HoloToolkit.Unity
             if (string.IsNullOrEmpty(ssml)) { return; }
 
             // Pass to helper method
-            #if WINDOWS_UWP
+#if WINDOWS_UWP
             PlaySpeech(ssml, () => synthesizer.SynthesizeSsmlToStreamAsync(ssml));
-            #else
+#else
             LogSpeech(ssml);
-            #endif
+#endif
         }
 
         /// <summary>
@@ -318,11 +320,103 @@ namespace HoloToolkit.Unity
             if (string.IsNullOrEmpty(text)) { return; }
 
             // Pass to helper method
-            #if WINDOWS_UWP
-            PlaySpeech(text, ()=> synthesizer.SynthesizeTextToStreamAsync(text));
-            #else
+#if WINDOWS_UWP
+            PlaySpeech(text, () => synthesizer.SynthesizeTextToStreamAsync(text));
+#else
             LogSpeech(text);
-            #endif
+#endif
+        }
+
+        public void SpeakTextInterrupting(string text)
+        {
+            SpeakText(text);
+        }
+
+        public delegate IEnumerator CallbackWhenDone();
+        private struct TextAndCallback
+        {
+            public string text;
+            public CallbackWhenDone callback;
+        }
+        private List<TextAndCallback> playNext = new List<TextAndCallback>();
+
+        private IEnumerator DelayedPlay()
+        {
+            float defaultWait = 0.2f;
+            yield return new WaitForSeconds(defaultWait);
+            TextAndCallback pending = new TextAndCallback { text = "", callback = null };
+            while (true)
+            {
+                while (audioSource.isPlaying)
+                {
+                    yield return new WaitForSeconds(defaultWait);
+                }
+                if (null != pending.callback)
+                {
+                    yield return pending.callback();
+                    pending.callback = null;
+                }
+                bool done;
+                lock (playNext)
+                {
+                    done = (0 == playNext.Count);
+                    if (!done)
+                    {
+                        pending = playNext[0];
+                        playNext.RemoveAt(0);
+                        SpeakText(pending.text);
+                        done = (0 == playNext.Count && null == pending.callback);
+                    }
+                }
+                if (done)
+                {
+                    break;
+                }
+                yield return new WaitForSeconds(defaultWait); // give any clip a chance to start
+            }
+        }
+
+        public void SpeakTextInTurn(string text, CallbackWhenDone callback)
+        {
+            if (string.IsNullOrEmpty(text)) { return; }
+
+            lock (playNext)
+            {
+                if (null != callback || playNext.Count > 0 || audioSource.isPlaying)
+                {
+                    TextAndCallback enqueue = new TextAndCallback { text = text, callback = callback };
+                    playNext.Add(enqueue);
+                    text = null;
+                    if (1 == playNext.Count)
+                    {
+                        StartCoroutine(DelayedPlay());
+                    }
+                }
+            }
+            if (null != text)
+            {
+                SpeakText(text);
+            }
+        }
+
+        public static IEnumerator DefaultCallback()
+        {
+            // We need this just to keep spoken text from stepping all over each other.
+            yield return null;
+        }
+
+        public void SpeakTextInTurn(string text)
+        {
+            SpeakTextInTurn(text, DefaultCallback);
+        }
+
+        public void FlushPending()
+        {
+            lock (playNext)
+            {
+                playNext.Clear();
+            }
+            audioSource.Stop();
         }
     }
 }
