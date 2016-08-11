@@ -75,7 +75,8 @@ namespace HoloToolkit.Unity
         /// <summary>
         /// Used to align planes with gravity so that they appear more level.
         /// </summary>
-        private float snapToGravityThreshold = 5.0f;
+        //private float snapToGravityThreshold = 5.0f;
+        public float snapToGravityThreshold = 5.0f;
 
         /// <summary>
         /// Indicates if SurfaceToPlanes is currently creating planes based on the Spatial Mapping Mesh.
@@ -222,6 +223,29 @@ namespace HoloToolkit.Unity
             for (int i = 0; i < planes.Length; i++)
             {
                 BoundedPlane boundedPlane = planes[i];
+#if true
+                //Debug.Log("boundedPlane.Bounds.Center.y == " + boundedPlane.Bounds.Center.y.ToString());
+                //Debug.Log("boundedPlane.Plane.normal.y == " + boundedPlane.Plane.normal.y.ToString());
+                // This code used to test against zero. Why?
+                //var headPosY = 0;
+                var headPosY = Camera.main.transform.position.y;
+                if (boundedPlane.Bounds.Center.y < headPosY && boundedPlane.Plane.normal.y >= upNormalThreshold)
+                {
+                    maxFloorArea = Mathf.Max(maxFloorArea, boundedPlane.Area);
+                    if (maxFloorArea == boundedPlane.Area)
+                    {
+                        FloorYPosition = boundedPlane.Bounds.Center.y;
+                    }
+                }
+                else if (boundedPlane.Bounds.Center.y > headPosY && boundedPlane.Plane.normal.y <= -(upNormalThreshold))
+                {
+                    maxCeilingArea = Mathf.Max(maxCeilingArea, boundedPlane.Area);
+                    if (maxCeilingArea == boundedPlane.Area)
+                    {
+                        CeilingYPosition = boundedPlane.Bounds.Center.y;
+                    }
+                }
+#else
                 if (boundedPlane.Bounds.Center.y < 0 && boundedPlane.Plane.normal.y >= upNormalThreshold)
                 {
                     maxFloorArea = Mathf.Max(maxFloorArea, boundedPlane.Area);
@@ -238,6 +262,7 @@ namespace HoloToolkit.Unity
                         CeilingYPosition = boundedPlane.Bounds.Center.y;
                     }
                 }
+#endif
             }
 
             // Create SurfacePlane objects to represent each plane found in the Spatial Mapping mesh.

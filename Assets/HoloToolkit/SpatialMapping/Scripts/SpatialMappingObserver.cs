@@ -73,6 +73,9 @@ namespace HoloToolkit.Unity
         /// </summary>
         public ObserverStates ObserverState { get; private set; }
 
+        public delegate void MeshDataReadyDelegate (SpatialMappingObserver self, GameObject surface);
+        public event MeshDataReadyDelegate MeshDataReady;
+
         private void Awake()
         {
             observer = new SurfaceObserver();
@@ -162,6 +165,11 @@ namespace HoloToolkit.Unity
                 if (SpatialMappingManager.Instance.CastShadows == false)
                 {
                     renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                }
+
+                if (null != MeshDataReady)
+                {
+                    MeshDataReady(this, surface);
                 }
             }
 
