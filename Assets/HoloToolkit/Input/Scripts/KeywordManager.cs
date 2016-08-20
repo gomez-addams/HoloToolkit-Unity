@@ -44,7 +44,7 @@ namespace HoloToolkit.Unity
         public KeywordAndResponse[] KeywordsAndResponses;
 
         private KeywordRecognizer keywordRecognizer;
-        private Dictionary<string, UnityEvent> responses;
+        private Dictionary<string, HashSet<UnityEvent>> responses;
 
         void Start()
         {
@@ -52,9 +52,27 @@ namespace HoloToolkit.Unity
             {
                 // Convert the struct array into a dictionary, with the keywords and the keys and the methods as the values.
                 // This helps easily link the keyword recognized to the UnityEvent to be invoked.
+#if false
                 responses = KeywordsAndResponses.ToDictionary(keywordAndResponse => keywordAndResponse.Keyword,
                                                               keywordAndResponse => keywordAndResponse.Response);
-
+#else
+                // I'm sure there must be a better way...
+                responses = new Dictionary<string, HashSet<UnityEvent>>();
+                foreach (var next in KeywordsAndResponses)
+                {
+                    HashSet<UnityEvent> keywordResponses;
+                    if (responses.TryGetValue(next.Keyword, out keywordResponses))
+                    {
+                        keywordResponses.Add(next.Response);
+                    }
+                    else
+                    {
+                        keywordResponses = new HashSet<UnityEvent>();
+                        keywordResponses.Add(next.Response);
+                        responses.Add(next.Keyword, keywordResponses);
+                    }
+                }
+#endif
                 keywordRecognizer = new KeywordRecognizer(responses.Keys.ToArray());
                 keywordRecognizer.OnPhraseRecognized += KeywordRecognizer_OnPhraseRecognized;
 
@@ -86,6 +104,7 @@ namespace HoloToolkit.Unity
 
         private void ProcessKeyBindings()
         {
+            // This doesn't handle keyword additions, but I don't care enough to fix it.
             foreach (var kvp in KeywordsAndResponses)
             {
                 if (Input.GetKeyDown(kvp.KeyCode))
@@ -98,12 +117,15 @@ namespace HoloToolkit.Unity
 
         private void KeywordRecognizer_OnPhraseRecognized(PhraseRecognizedEventArgs args)
         {
-            UnityEvent keywordResponse;
+            HashSet<UnityEvent> keywordResponses;
 
             // Check to make sure the recognized keyword exists in the methods dictionary, then invoke the corresponding method.
-            if (responses.TryGetValue(args.text, out keywordResponse))
+            if (responses.TryGetValue(args.text, out keywordResponses))
             {
-                keywordResponse.Invoke();
+                foreach (var next in keywordResponses)
+                {
+                    next.Invoke();
+                }
             }
         }
 
