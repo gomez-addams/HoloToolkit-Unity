@@ -50,14 +50,22 @@ namespace HoloToolkit.Unity
         [Tooltip("Lerp speed when moving focus point farther away.")]
         public float LerpStabilizationPlanePowerFarther = 7.0f;
 
+        [Tooltip("Direct the gaze direction down (+) or up (-) a given number of degrees, with 0.0 defaulting to the center of the display")]
+        public float AdjustGazeAngle = 0.0f;
+
         private Vector3 gazeOrigin;
         private Vector3 gazeDirection;
         private float lastHitDistance = 15.0f;
 
+        public Vector3 GazeOrigin { get { return gazeOrigin; } }
+        public Vector3 GazeDirection { get { return gazeDirection; } }
+        public float LastHitDistance { get { return lastHitDistance; } }
+
         private void Update()
         {
             gazeOrigin = Camera.main.transform.position;
-            gazeDirection = Camera.main.transform.forward;
+            //gazeDirection = Camera.main.transform.forward;
+            gazeDirection = Quaternion.AngleAxis(AdjustGazeAngle, Camera.main.transform.right) * Camera.main.transform.forward;
 
             UpdateRaycast();
             UpdateStabilizationPlane();
