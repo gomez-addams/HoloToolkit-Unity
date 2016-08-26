@@ -164,23 +164,26 @@ namespace HoloToolkit.Unity
 
             // Get the latest Mesh data from the Spatial Mapping Manager.
             List<PlaneFinding.MeshData> meshData = new List<PlaneFinding.MeshData>();
-            List<MeshFilter> filters = SpatialMappingManager.Instance.GetMeshFilters();
-
-            for (int index = 0; index < filters.Count; index++)
+            lock (SpatialMappingManager.Instance)
             {
-                MeshFilter filter = filters[index];
-                if (filter != null && filter.sharedMesh != null)
-                {
-                    // fix surface mesh normals so we can get correct plane orientation.
-                    filter.mesh.RecalculateNormals();
-                    meshData.Add(new PlaneFinding.MeshData(filter));
-                }
+                List<MeshFilter> filters = SpatialMappingManager.Instance.GetMeshFilters();
 
-                if ((Time.realtimeSinceStartup - start) > FrameTime)
+                for (int index = 0; index < filters.Count; index++)
                 {
-                    // Pause our work, and continue to make more PlaneFinding objects on the next frame.
-                    yield return null;
-                    start = Time.realtimeSinceStartup;
+                    MeshFilter filter = filters[index];
+                    if (filter != null && filter.sharedMesh != null)
+                    {
+                        // fix surface mesh normals so we can get correct plane orientation.
+                        filter.mesh.RecalculateNormals();
+                        meshData.Add(new PlaneFinding.MeshData(filter));
+                    }
+
+                    if ((Time.realtimeSinceStartup - start) > FrameTime)
+                    {
+                        // Pause our work, and continue to make more PlaneFinding objects on the next frame.
+                        yield return null;
+                        start = Time.realtimeSinceStartup;
+                    }
                 }
             }
 

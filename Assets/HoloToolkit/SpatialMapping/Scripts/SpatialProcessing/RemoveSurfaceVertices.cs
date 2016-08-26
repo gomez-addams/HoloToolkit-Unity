@@ -117,108 +117,111 @@ namespace HoloToolkit.Unity
         /// <returns>Yield result.</returns>
         private IEnumerator RemoveSurfaceVerticesWithinBoundsRoutine()
         {
-            List<MeshFilter> meshFilters = SpatialMappingManager.Instance.GetMeshFilters();
-            float start = Time.realtimeSinceStartup;
-
-            while (boundingObjectsQueue.Count > 0)
+            lock (SpatialMappingManager.Instance)
             {
-                // Get the current boundingObject.
-                Bounds bounds = boundingObjectsQueue.Dequeue();
+                List<MeshFilter> meshFilters = SpatialMappingManager.Instance.GetMeshFilters();
+                float start = Time.realtimeSinceStartup;
 
-                foreach (MeshFilter filter in meshFilters)
+                while (boundingObjectsQueue.Count > 0)
                 {
-                    // Since this is amortized across frames, the filter can be destroyed by the time
-                    // we get here.
-                    if (filter == null)
+                    // Get the current boundingObject.
+                    Bounds bounds = boundingObjectsQueue.Dequeue();
+
+                    foreach (MeshFilter filter in meshFilters)
                     {
-                        continue;
-                    }
-
-                    Mesh mesh = filter.sharedMesh;
-
-                    if (mesh != null && !mesh.bounds.Intersects(bounds))
-                    {
-                        // We don't need to do anything to this mesh, move to the next one.
-                        continue;
-                    }
-
-                    // Remove vertices from any mesh that intersects with the bounds.
-                    Vector3[] verts = mesh.vertices;
-                    List<int> vertsToRemove = new List<int>();
-
-                    // Find which mesh vertices are within the bounds.
-                    for (int i = 0; i < verts.Length; ++i)
-                    {
-                        if (bounds.Contains(verts[i]))
+                        // Since this is amortized across frames, the filter can be destroyed by the time
+                        // we get here.
+                        if (filter == null)
                         {
-                            // These vertices are within bounds, so mark them for removal.
-                            vertsToRemove.Add(i);
+                            continue;
                         }
 
-                        // If too much time has passed, we need to return control to the main game loop.
-                        if ((Time.realtimeSinceStartup - start) > FrameTime)
-                        {
-                            // Pause our work here, and continue finding vertices to remove on the next frame.
-                            yield return null;
-                            start = Time.realtimeSinceStartup;
-                        }
-                    }
+                        Mesh mesh = filter.sharedMesh;
 
-                    if (vertsToRemove.Count == 0)
-                    {
-                        // We did not find any vertices to remove, so move to the next mesh.
-                        continue;
-                    }
-
-                    // We found vertices to remove, so now we need to remove any triangles that reference these vertices.
-                    int[] indices = mesh.GetTriangles(0);
-                    List<int> updatedIndices = new List<int>();
-
-                    for (int index = 0; index < indices.Length; index += 3)
-                    {
-                        // Each triangle utilizes three slots in the index buffer, check to see if any of the
-                        // triangle indices contain a vertex that should be removed.
-                        if (vertsToRemove.Contains(indices[index]) ||
-                            vertsToRemove.Contains(indices[index + 1]) ||
-                            vertsToRemove.Contains(indices[index + 2]))
+                        if (mesh != null && !mesh.bounds.Intersects(bounds))
                         {
-                            // Do nothing, we don't want to save this triangle...
-                        }
-                        else
-                        {
-                            // Every vertex in this triangle is good, so let's save it.
-                            updatedIndices.Add(indices[index]);
-                            updatedIndices.Add(indices[index + 1]);
-                            updatedIndices.Add(indices[index + 2]);
+                            // We don't need to do anything to this mesh, move to the next one.
+                            continue;
                         }
 
-                        // If too much time has passed, we need to return control to the main game loop.
-                        if ((Time.realtimeSinceStartup - start) > FrameTime)
+                        // Remove vertices from any mesh that intersects with the bounds.
+                        Vector3[] verts = mesh.vertices;
+                        List<int> vertsToRemove = new List<int>();
+
+                        // Find which mesh vertices are within the bounds.
+                        for (int i = 0; i < verts.Length; ++i)
                         {
-                            // Pause our work, and continue making additional planes on the next frame.
-                            yield return null;
-                            start = Time.realtimeSinceStartup;
+                            if (bounds.Contains(verts[i]))
+                            {
+                                // These vertices are within bounds, so mark them for removal.
+                                vertsToRemove.Add(i);
+                            }
+
+                            // If too much time has passed, we need to return control to the main game loop.
+                            if ((Time.realtimeSinceStartup - start) > FrameTime)
+                            {
+                                // Pause our work here, and continue finding vertices to remove on the next frame.
+                                yield return null;
+                                start = Time.realtimeSinceStartup;
+                            }
                         }
-                    }
 
-                    if (indices.Length == updatedIndices.Count)
-                    {
-                        // None of the verts to remove were being referenced in the triangle list.
-                        continue;
-                    }
+                        if (vertsToRemove.Count == 0)
+                        {
+                            // We did not find any vertices to remove, so move to the next mesh.
+                            continue;
+                        }
 
-                    // Update mesh to use the new triangles.
-                    mesh.SetTriangles(updatedIndices.ToArray(), 0);
-                    mesh.RecalculateBounds();
-                    yield return null;
-                    start = Time.realtimeSinceStartup;
+                        // We found vertices to remove, so now we need to remove any triangles that reference these vertices.
+                        int[] indices = mesh.GetTriangles(0);
+                        List<int> updatedIndices = new List<int>();
 
-                    // Reset the mesh collider to fit the new mesh.
-                    MeshCollider collider = filter.gameObject.GetComponent<MeshCollider>();
-                    if (collider != null)
-                    {
-                        collider.sharedMesh = null;
-                        collider.sharedMesh = mesh;
+                        for (int index = 0; index < indices.Length; index += 3)
+                        {
+                            // Each triangle utilizes three slots in the index buffer, check to see if any of the
+                            // triangle indices contain a vertex that should be removed.
+                            if (vertsToRemove.Contains(indices[index]) ||
+                                vertsToRemove.Contains(indices[index + 1]) ||
+                                vertsToRemove.Contains(indices[index + 2]))
+                            {
+                                // Do nothing, we don't want to save this triangle...
+                            }
+                            else
+                            {
+                                // Every vertex in this triangle is good, so let's save it.
+                                updatedIndices.Add(indices[index]);
+                                updatedIndices.Add(indices[index + 1]);
+                                updatedIndices.Add(indices[index + 2]);
+                            }
+
+                            // If too much time has passed, we need to return control to the main game loop.
+                            if ((Time.realtimeSinceStartup - start) > FrameTime)
+                            {
+                                // Pause our work, and continue making additional planes on the next frame.
+                                yield return null;
+                                start = Time.realtimeSinceStartup;
+                            }
+                        }
+
+                        if (indices.Length == updatedIndices.Count)
+                        {
+                            // None of the verts to remove were being referenced in the triangle list.
+                            continue;
+                        }
+
+                        // Update mesh to use the new triangles.
+                        mesh.SetTriangles(updatedIndices.ToArray(), 0);
+                        mesh.RecalculateBounds();
+                        yield return null;
+                        start = Time.realtimeSinceStartup;
+
+                        // Reset the mesh collider to fit the new mesh.
+                        MeshCollider collider = filter.gameObject.GetComponent<MeshCollider>();
+                        if (collider != null)
+                        {
+                            collider.sharedMesh = null;
+                            collider.sharedMesh = mesh;
+                        }
                     }
                 }
             }
