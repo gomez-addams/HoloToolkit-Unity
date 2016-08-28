@@ -108,6 +108,16 @@ namespace HoloToolkit.Unity
         /// <summary>
         /// Creates planes based on meshes gathered by the SpatialMappingManager's SurfaceObserver.
         /// </summary>
+        public void MakePlanes(List<MeshFilter> filters, int physicsLayer)
+        {
+            if (!makingPlanes)
+            {
+                makingPlanes = true;
+                // Processing the mesh can be expensive...
+                // We use Coroutine to split the work across multiple frames and avoid impacting the frame rate too much.
+                StartCoroutine(MakePlanesRoutine(filters, physicsLayer));
+            }
+        }
         public void MakePlanes()
         {
             if (!makingPlanes)
@@ -115,7 +125,7 @@ namespace HoloToolkit.Unity
                 makingPlanes = true;
                 // Processing the mesh can be expensive...
                 // We use Coroutine to split the work across multiple frames and avoid impacting the frame rate too much.
-                StartCoroutine(MakePlanesRoutine());
+                StartCoroutine(MakePlanesRoutine(null, -1));
             }
         }
 
@@ -148,7 +158,7 @@ namespace HoloToolkit.Unity
         /// Iterator block, analyzes surface meshes to find planes and create new 3D cubes to represent each plane.
         /// </summary>
         /// <returns>Yield result.</returns>
-        private IEnumerator MakePlanesRoutine()
+        private IEnumerator MakePlanesRoutine(List<MeshFilter> filters, int physicsLayer)
         {
             // Remove any previously existing planes, as they may no longer be valid.
             for (int index = 0; index < ActivePlanes.Count; index++)
@@ -162,11 +172,25 @@ namespace HoloToolkit.Unity
 
             ActivePlanes.Clear();
 
+            //MonoBehaviour locking = this;
+            if (null == filters)
+            {
+                //locking = SpatialMappingManager.Instance;
+                physicsLayer = SpatialMappingManager.Instance.PhysicsLayer;
+            }
+            else if (-1 == physicsLayer)
+            {
+                physicsLayer = SpatialMappingManager.Instance.PhysicsLayer;
+            }
+
             // Get the latest Mesh data from the Spatial Mapping Manager.
             List<PlaneFinding.MeshData> meshData = new List<PlaneFinding.MeshData>();
-            lock (SpatialMappingManager.Instance)
+            //lock (locking)
             {
-                List<MeshFilter> filters = SpatialMappingManager.Instance.GetMeshFilters();
+                if (null == filters)
+                {
+                    filters = SpatialMappingManager.Instance.GetMeshFilters();
+                }
 
                 for (int index = 0; index < filters.Count; index++)
                 {
@@ -190,7 +214,26 @@ namespace HoloToolkit.Unity
             // Pause our work, and continue on the next frame.
             yield return null;
 
+#if true
+            // I've seen the PlaneFinding code lock up on an empty list.
+            if (meshData.Count == 0)
+            {
+                Debug.Log("Failed making planes.");
+
+                // We are done creating planes, trigger an event.
+                EventHandler failure = MakePlanesComplete;
+                if (failure != null)
+                {
+                    failure(this, EventArgs.Empty);
+                }
+
+                makingPlanes = false;
+                yield break;
+            }
+#endif
+
 #if !UNITY_EDITOR
+            Debug.Log("[MakePlanesRoutine] calling into PlaneFinding.FindPlanes with " + meshData.Count + " mesh data items");
             // When not in the unity editor we can use a cool background task to help manage FindPlanes().
             Task<BoundedPlane[]> planeTask = Task.Run(() => PlaneFinding.FindPlanes(meshData, snapToGravityThreshold, MinArea));
         
@@ -301,7 +344,7 @@ namespace HoloToolkit.Unity
                 else
                 {
                     // Set the plane to use the same layer as the SpatialMapping mesh.
-                    destPlane.layer = SpatialMappingManager.Instance.PhysicsLayer;
+                    destPlane.layer = physicsLayer;
                     ActivePlanes.Add(destPlane);
                 }
 

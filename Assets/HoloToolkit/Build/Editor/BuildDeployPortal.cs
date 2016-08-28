@@ -318,7 +318,7 @@ namespace HoloToolkit.Unity
             AppDetails appDetails = QueryAppDetails(packageFamilyName, connectInfo);
             if (appDetails == null)
             {
-                Debug.LogError("Appliation not found");
+                Debug.LogError("Application not found");
                 return false;
             }
 
@@ -351,7 +351,7 @@ namespace HoloToolkit.Unity
                 AppDetails appDetails = QueryAppDetails(packageFamilyName, connectInfo);
                 if (appDetails == null)
                 {
-                    Debug.LogError("Appliation not found");
+                    Debug.LogError("Application not found");
                     return false;
                 }
 
