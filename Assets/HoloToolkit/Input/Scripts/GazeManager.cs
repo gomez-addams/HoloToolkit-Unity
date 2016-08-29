@@ -76,13 +76,21 @@ namespace HoloToolkit.Unity
         /// </summary>
         private void UpdateRaycast()
         {
+            // It make sense to me to avoid gaze collisions with geometry we can't see.
+            //var useOrigin = gazeOrigin;
+            //var maxDistance = MaxGazeDistance;
+            var minDistance = Camera.main.nearClipPlane;
+            var maxDistance = Camera.main.farClipPlane;
+            var useOrigin = gazeOrigin + gazeDirection * minDistance;
+            maxDistance = Mathf.Clamp(MaxGazeDistance - minDistance, Mathf.Epsilon, maxDistance - minDistance);
+
             // Get the raycast hit information from Unity's physics system.
             RaycastHit hitInfo;
-            Hit = Physics.Raycast(gazeOrigin,
-                           gazeDirection,
-                           out hitInfo,
-                           MaxGazeDistance,
-                           RaycastLayerMask);
+            Hit = Physics.Raycast(useOrigin, // gazeOrigin,
+                            gazeDirection,
+                            out hitInfo,
+                            maxDistance,
+                            RaycastLayerMask);
 
             GameObject oldFocusedObject = FocusedObject;
             // Update the HitInfo property so other classes can use this hit information.
