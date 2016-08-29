@@ -541,7 +541,18 @@ namespace HoloToolkit.Unity
 
             // Kick off the install
             Debug.Log("Installing build on: " + targetDevice);
+#if false
             return BuildDeployPortal.InstallApp(files[0].FullName, connectInfo);
+#else
+            // Make the launch tolerant of a delay on the HoloLens after an install.
+            if (!RetryWithTimeout(40.0f, "retrying installation...",
+                () => BuildDeployPortal.InstallApp(files[0].FullName, connectInfo)))
+            {
+                Debug.LogError("Ultimately failed to install the application.");
+                return false;
+            }
+            return true;
+#endif
         }
 
         private void UninstallAppOnDevicesList(string[] targetList)
@@ -662,6 +673,24 @@ namespace HoloToolkit.Unity
             return false;
         }
 
+#if true
+        delegate bool Failable();
+        bool RetryWithTimeout(float timeout, string retryMessage, Failable action)
+        {
+            var start = Time.realtimeSinceStartup;
+            while (!action())
+            {
+                float deltaTime = Time.realtimeSinceStartup - start;
+                if (deltaTime > timeout)
+                {
+                    return false;
+                }
+                Debug.LogWarning(retryMessage + " (" + deltaTime + " elapsed seconds)");
+            }
+            return true;
+        }
+#endif
+
         void LaunchAppOnIPs(string targetIPs)
         {
             string packageFamilyName = CalcPackageFamilyName();
@@ -675,10 +704,20 @@ namespace HoloToolkit.Unity
             {
                 string targetIP = FinalizeIP(IPlist[i]);
                 Debug.Log("Launch app on: " + targetIP);
+#if false
                 BuildDeployPortal.LaunchApp(
                     packageFamilyName, new BuildDeployPortal.ConnectInfo(targetIP, BuildDeployPrefs.DeviceUser, BuildDeployPrefs.DevicePassword));
-            }
+#else
+                // Make the launch tolerant of a delay on the HoloLens after an install.
+                if (!RetryWithTimeout(40.0f, "retrying launch...",
+                    () => BuildDeployPortal.LaunchApp(packageFamilyName,
+                        new BuildDeployPortal.ConnectInfo(targetIP, BuildDeployPrefs.DeviceUser, BuildDeployPrefs.DevicePassword) )))
+                {
+                    Debug.LogError("Ultimately failed to launch the application. You should probably reinstall.");
+                }
+#endif
         }
+    }
 
         void KillAppOnIPs(string targetIPs)
         {
