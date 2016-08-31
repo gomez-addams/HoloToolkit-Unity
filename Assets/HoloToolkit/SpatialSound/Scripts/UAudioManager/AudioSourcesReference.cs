@@ -13,7 +13,7 @@ namespace HoloToolkit.Unity
     /// </summary>
     public class AudioSourcesReference : MonoBehaviour
     {
-        private List<AudioSource> audioSources;
+        private List<AudioSource> audioSources = new List<AudioSource>(); // is this a bug?
         public List<AudioSource> AudioSources
         {
             get
@@ -28,13 +28,13 @@ namespace HoloToolkit.Unity
             source.playOnAwake = false;
             source.dopplerLevel = 0f;
             source.enabled = false;
-            audioSources.Add(source);
+            audioSources.Add(source); // I've actually crashed here with a bad list
             return source;
         }
 
         private void Awake()
         {
-            audioSources = new List<AudioSource>();
+            //audioSources = new List<AudioSource>();
             foreach (AudioSource audioSource in GetComponents<AudioSource>())
             {
                 audioSources.Add(audioSource);
