@@ -105,6 +105,11 @@ namespace HoloToolkit.Unity
             planesParent.transform.rotation = Quaternion.identity;
         }
 
+        public static GameObject GetPlanesParent()
+        {
+            return Instance.planesParent;
+        }
+
         /// <summary>
         /// Creates planes based on meshes gathered by the SpatialMappingManager's SurfaceObserver.
         /// </summary>
