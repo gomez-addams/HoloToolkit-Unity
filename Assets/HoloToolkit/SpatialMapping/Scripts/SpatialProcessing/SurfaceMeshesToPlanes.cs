@@ -275,6 +275,9 @@ namespace HoloToolkit.Unity
             {
                 BoundedPlane boundedPlane = planes[i];
 #if true
+                // This still gets the wrong value surprisingly often. Does it have something to do
+                // with not having anchored anything yet, while the camera is still "floating" somehow?
+                //
                 //Debug.Log("boundedPlane.Bounds.Center.y == " + boundedPlane.Bounds.Center.y.ToString());
                 //Debug.Log("boundedPlane.Plane.normal.y == " + boundedPlane.Plane.normal.y.ToString());
                 // This code used to test against zero. Why?
@@ -282,16 +285,18 @@ namespace HoloToolkit.Unity
                 var headPosY = Camera.main.transform.position.y;
                 if (boundedPlane.Bounds.Center.y < headPosY && boundedPlane.Plane.normal.y >= upNormalThreshold)
                 {
+                    Debug.Log("testing floor Y " + boundedPlane.Bounds.Center.y + " with area " + boundedPlane.Area);
                     maxFloorArea = Mathf.Max(maxFloorArea, boundedPlane.Area);
-                    if (maxFloorArea == boundedPlane.Area)
+                    if (Mathf.Abs(maxFloorArea - boundedPlane.Area) < 1.0e-2f)
                     {
+                        Debug.Log("new maximum floor Y: " + boundedPlane.Bounds.Center.y);
                         FloorYPosition = boundedPlane.Bounds.Center.y;
                     }
                 }
                 else if (boundedPlane.Bounds.Center.y > headPosY && boundedPlane.Plane.normal.y <= -(upNormalThreshold))
                 {
                     maxCeilingArea = Mathf.Max(maxCeilingArea, boundedPlane.Area);
-                    if (maxCeilingArea == boundedPlane.Area)
+                    if (Mathf.Abs(maxCeilingArea - boundedPlane.Area) < 1.0e-2f)
                     {
                         CeilingYPosition = boundedPlane.Bounds.Center.y;
                     }
