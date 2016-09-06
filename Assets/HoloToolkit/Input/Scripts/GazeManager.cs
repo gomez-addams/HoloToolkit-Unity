@@ -50,7 +50,8 @@ namespace HoloToolkit.Unity
         [Tooltip("Lerp speed when moving focus point farther away.")]
         public float LerpStabilizationPlanePowerFarther = 7.0f;
 
-        [Tooltip("Direct the gaze direction down (+) or up (-) a given number of degrees, with 0.0 defaulting to the center of the display")]
+        //[Tooltip("Direct the gaze direction down (+) or up (-) a given number of degrees, with 0.0 defaulting to the center of the display")]
+        [HideInInspector]
         public float AdjustGazeAngle = 0.0f;
 
         private Vector3 gazeOrigin;
@@ -64,8 +65,8 @@ namespace HoloToolkit.Unity
         private void Update()
         {
             gazeOrigin = Camera.main.transform.position;
-            //gazeDirection = Camera.main.transform.forward;
-            gazeDirection = Quaternion.AngleAxis(AdjustGazeAngle, Camera.main.transform.right) * Camera.main.transform.forward;
+            gazeDirection = Camera.main.transform.forward;
+            //gazeDirection = Vector.Normalize(Quaternion.AngleAxis(AdjustGazeAngle, Camera.main.transform.right) * Camera.main.transform.forward);
 
             UpdateRaycast();
             UpdateStabilizationPlane();
@@ -108,7 +109,7 @@ namespace HoloToolkit.Unity
             {
                 // If the raycast does not hit a hologram, default the position to last hit distance in front of the user,
                 // and the normal to face the user.
-                Position = gazeOrigin + (gazeDirection * lastHitDistance);
+                Position = gazeOrigin + (gazeDirection * lastHitDistance * 1.5f);
                 Normal = -gazeDirection;
                 FocusedObject = null;
             }
